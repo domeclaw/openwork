@@ -859,6 +859,28 @@ function MessageBlockRow(props: {
                   );
                 }
 
+                // Reasoning/thinking part — render as a compact thinking card
+                // that flows naturally in the message without blocking other content.
+                if ((group.part as { _reasoning?: boolean })._reasoning) {
+                  const raw = partToText(group.part);
+                  if (!raw.trim()) return null;
+                  return (
+                    <details className="mb-2 rounded-lg border border-gray-6/20 bg-gray-1/20" open>
+                      <summary className="flex cursor-pointer items-center gap-1.5 px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-gray-7 hover:bg-gray-2/40">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                        Thinking
+                      </summary>
+                      <div className="max-h-[220px] overflow-y-auto border-t border-gray-6/10 px-3 py-2 font-mono text-[11px] leading-[1.5] whitespace-pre-wrap text-gray-10">
+                        {cleanReasoningPreview(raw)}
+                      </div>
+                    </details>
+                  );
+                }
+
                 const text = partToText(group.part);
                 if (block.isUser) {
                   return (
@@ -931,6 +953,8 @@ function MessageBlockRow(props: {
 
 function SessionTranscriptInner(props: SessionTranscriptProps) {
   const showThinking = props.showThinking ?? props.developerMode;
+  // Auto-show reasoning while session is actively streaming
+  const shouldShowReasoning = showThinking || props.isStreaming;
   const isNestedVariant = props.variant === "nested";
   const [internalExpandedStepIds, setInternalExpandedStepIds] = useState<Set<string>>(
     () => new Set(),
@@ -965,7 +989,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     transcriptMessages.forEach((message) => {
       const renderableParts = message.parts.filter((part) => {
         if (part.type === "reasoning") {
-          return showThinking;
+          return shouldShowReasoning;
         }
 
         if (part.type === "step-start" || part.type === "step-finish") {
@@ -1025,7 +1049,7 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     });
 
     return blocks;
-  }, [props.developerMode, showThinking, transcriptMessages]);
+  }, [props.developerMode, props.isStreaming, transcriptMessages]);
 
   // Structural sharing: reuse the previous block object reference for any
   // block whose content is equivalent. During streaming, only the active

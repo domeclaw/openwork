@@ -156,7 +156,7 @@ function messageHasVisibleAssistantOutput(message: UIMessage) {
   if (message.role !== "assistant") return false;
   return message.parts.some((part) => {
     if ("text" in part && typeof part.text === "string") return part.text.trim().length > 0;
-    return part.type === "dynamic-tool" || part.type === "file";
+    return part.type === "dynamic-tool" || part.type === "file" || part.type === "reasoning";
   });
 }
 
@@ -279,6 +279,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
   const [notice, setNotice] = useState<ReactComposerNotice | null>(null);
   const [error, setError] = useState<SessionError | null>(null);
   const [sending, setSending] = useState(false);
+  const [activeRun, setActiveRun] = useState(false); // tracks active run until idle
   const [showDelayedLoading, setShowDelayedLoading] = useState(false);
   const [awaitingAssistantBaseline, setAwaitingAssistantBaseline] = useState<number | null>(null);
   const [rendered, setRendered] = useState<{ sessionId: string; snapshot: OpenworkSessionSnapshot } | null>(null);
@@ -327,6 +328,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     hydratedKeyRef.current = null;
     setError(null);
     setSending(false);
+    setActiveRun(false);
     setShowDelayedLoading(false);
     setAwaitingAssistantBaseline(null);
     // Clear draft + attachments + mentions on session change so typed text
@@ -419,11 +421,26 @@ export function SessionSurface(props: SessionSurfaceProps) {
     cachedRendered: rendered,
   });
   const liveStatus = statusState ?? snapshot?.status ?? IDLE_STATUS;
-  const chatStreaming = sending || liveStatus.type === "busy" || liveStatus.type === "retry";
   const renderedMessages = useMemo(
     () => deriveRenderedSessionMessages({ transcriptState, snapshot }),
     [snapshot, transcriptState],
   );
+  // Detect when the assistant has genuinely finished its turn (not just
+  // between tool calls or while the backend still reports busy).
+  const assistantFinished = useMemo(() => {
+    const lastMsg = renderedMessages[renderedMessages.length - 1];
+    if (!lastMsg || lastMsg.role !== "assistant") return false;
+    const lastPart = lastMsg.parts[lastMsg.parts.length - 1];
+    if (!lastPart) return false;
+    // If the last part is a tool call, the assistant hasn't finished yet.
+    if (lastPart.type === "dynamic-tool") return false;
+    // If the last part is still streaming, the assistant is still generating.
+    if ("state" in lastPart && lastPart.state === "streaming") return false;
+    return true;
+  }, [renderedMessages]);
+  // Show STOP when the user is waiting for a response or the assistant is
+  // actively working; hide it once the assistant has finished its turn.
+  const chatStreaming = sending || (!assistantFinished && (liveStatus.type === "busy" || liveStatus.type === "retry"));
   const pendingSessionLoad = !snapshot && snapshotQuery.isLoading && renderedMessages.length === 0;
   const assistantOutputAfterAwaitStart = useMemo(() => {
     if (awaitingAssistantBaseline === null) return false;
@@ -461,7 +478,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     if (sending || liveStatus.type !== "idle" || renderedMessages.length <= awaitingAssistantBaseline) return;
     const id = window.setTimeout(() => setAwaitingAssistantBaseline(null), 1200);
     return () => window.clearTimeout(id);
-  }, [assistantOutputAfterAwaitStart, awaitingAssistantBaseline, liveStatus.type, renderedMessages.length, sending]);
+  }, [assistantOutputAfterAwaitStart, awaitingAssistantBaseline, liveStatus.type, renderedMessages.length, activeRun]);
 
   const model = deriveSessionRenderModel({
     intendedSessionId: props.sessionId,
@@ -525,6 +542,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
     // talking" behavior that the Solid composer had.
     setError(null);
     setSending(true);
+    setActiveRun(true);
     setAwaitingAssistantBaseline(renderedMessages.length);
     try {
       const nextDraft = buildDraft(text, attachments);
@@ -540,6 +558,7 @@ export function SessionSurface(props: SessionSurfaceProps) {
       setDraft("");
       setAwaitingAssistantBaseline(null);
       setSending(false);
+      setActiveRun(false);
     }
   }, [attachments, buildDraft, draft, props.onDraftChange, props.onSendDraft, renderedMessages.length]);
 
@@ -549,16 +568,98 @@ export function SessionSurface(props: SessionSurfaceProps) {
     try {
       await abortSessionSafe(opencodeClient, props.sessionId);
       await snapshotQuery.refetch();
+      setActiveRun(false);
     } catch (nextError) {
       setError({ message: nextError instanceof Error ? nextError.message : "Failed to stop run." });
+      setActiveRun(false);
     }
   }, [chatStreaming, opencodeClient, props.sessionId, snapshotQuery.refetch]);
 
+  // Reset activeRun when the backend is idle AND the assistant has finished.
+  // Add a 3-second grace period so polling has time to catch any messages
+  // that SSE might have missed.
   useEffect(() => {
-    if (liveStatus.type === "idle") {
-      setSending(false);
+    if ((liveStatus.type === "idle" || currentSnapshot?.status?.type === "idle") && assistantFinished) {
+      const timer = setTimeout(() => {
+        setSending(false);
+        setActiveRun(false);
+      }, 3000);
+      return () => clearTimeout(timer);
     }
-  }, [liveStatus.type]);
+  }, [liveStatus.type, currentSnapshot?.status?.type, assistantFinished]);
+
+  // Reset activeRun when snapshot query completes and assistant has finished.
+  useEffect(() => {
+    if (!snapshotQuery.isLoading && !snapshotQuery.isFetching && currentSnapshot?.status?.type === "idle" && assistantFinished) {
+      setSending(false);
+      setActiveRun(false);
+    }
+  }, [snapshotQuery.isLoading, snapshotQuery.isFetching, currentSnapshot?.status?.type, assistantFinished]);
+
+  // Reset sending when the latest assistant message is no longer streaming.
+  // Keep activeRun true so polling continues until the backend confirms idle.
+  useEffect(() => {
+    if (!activeRun) return;
+    const lastMsg = renderedMessages[renderedMessages.length - 1];
+    if (!lastMsg || lastMsg.role !== "assistant") return;
+    const lastPart = lastMsg.parts[lastMsg.parts.length - 1];
+    if (!lastPart) return;
+    // If the last part is a tool call, the session is still active — don't reset.
+    if (lastPart.type === "dynamic-tool") return;
+    // If the last part is not streaming and we have visible assistant output,
+    // the agent has finished its turn — reset sending only.
+    const hasAssistantOutput = renderedMessages.some(
+      (m) => m.role === "assistant" && m.parts.some((p) => p.type === "text" || p.type === "reasoning"),
+    );
+    if (hasAssistantOutput && "state" in lastPart && lastPart.state !== "streaming") {
+      setSending(false);
+      // activeRun stays true so polling continues to catch any missed messages
+    }
+  }, [activeRun, renderedMessages]);
+
+  // Aggressively poll snapshot while activeRun is true to catch any
+  // messages that SSE might have missed.
+  const polledMsgCountRef = useRef(0);
+
+  // Sync ref when activeRun starts — baseline is current message count
+  useEffect(() => {
+    if (activeRun) {
+      polledMsgCountRef.current = renderedMessages.length;
+    }
+  }, [activeRun, renderedMessages.length]);
+
+  useEffect(() => {
+    if (!activeRun) return;
+    const interval = setInterval(() => {
+      void snapshotQuery.refetch().then((result) => {
+        const data = result.data as any;
+        const msgs = data?.messages ?? data?.snapshot?.messages ?? [];
+        console.log(`[poll] msgs=${msgs.length} baseline=${polledMsgCountRef.current}`, msgs[msgs.length - 1]?.role);
+        // Reset if a NEW assistant message appeared
+        if (msgs.length > polledMsgCountRef.current) {
+          const lastMsg = msgs[msgs.length - 1];
+          if (lastMsg?.role === "assistant") {
+            polledMsgCountRef.current = msgs.length;
+            setSending(false);
+            setActiveRun(false);
+          }
+        }
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [activeRun, snapshotQuery]);
+
+  // Hard fallback: unconditionally reset after 30 seconds so user
+  // is never stuck forever.
+  useEffect(() => {
+    if (!activeRun) return;
+    const timer = setTimeout(() => {
+      setSending(false);
+      setActiveRun(false);
+      void snapshotQuery.refetch();
+    }, 30000);
+    return () => clearTimeout(timer);
+  }, [activeRun, snapshotQuery]);
 
   useEffect(() => {
     props.onDraftChange(buildDraft(draft, attachments));

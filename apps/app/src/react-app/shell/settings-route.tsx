@@ -1602,6 +1602,23 @@ export function SettingsRoute() {
 
           />
         );
+      case "skills":
+        return (
+          <SkillsView
+            busy={busy}
+            workspaceName={selectedWorkspaceName}
+            showHeader={true}
+            canInstallSkillCreator={canWriteWorkspaceSkills}
+            canUseDesktopTools={isElectronRuntime()}
+            accessHint={skillsAccessHint}
+            extensions={extensionsStore}
+            onOpenLink={(url) => platform.openLink(url)}
+            createSessionAndOpen={async (command?: string): Promise<string | undefined> => {
+              navigate(selectedWorkspaceId ? workspaceSessionRoute(selectedWorkspaceId) : "/session");
+              return undefined;
+            }}
+          />
+        );
       case "den":
         return (
           <DenView

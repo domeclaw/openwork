@@ -568,14 +568,23 @@ export function groupMessageParts(parts: Part[], messageId: string): MessageGrou
       return;
     }
 
-    flushText();
-
-    if (isExplorationToolPart(part)) {
-      explorationSteps.push(part);
+    if (part.type === "reasoning") {
+      // Reasoning parts are flushed as their own text group so they
+      // render as a distinct thinking card, separate from the assistant's
+      // response text and user messages.
+      flushText();
+      flushExplorationSteps();
+      groups.push({
+        kind: "text",
+        part: { type: "text", text: (part as { text?: string }).text ?? "", _reasoning: true } as Part,
+        segment: sawExecution ? "result" : "intent",
+      });
       return;
     }
 
-    if (part.type === "reasoning" && explorationSteps.length > 0) {
+    flushText();
+
+    if (isExplorationToolPart(part)) {
       explorationSteps.push(part);
       return;
     }

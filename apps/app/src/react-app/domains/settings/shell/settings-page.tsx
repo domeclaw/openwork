@@ -147,7 +147,7 @@ export function getSettingsTabDescription(tab: SettingsTab) {
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  return ["permissions", "extensions", "advanced"];
+  return ["permissions", "extensions", "skills", "advanced"];
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {

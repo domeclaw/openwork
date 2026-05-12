@@ -422,20 +422,43 @@ function applyEvent(entry: SyncEntry, workspaceId: string, event: OpencodeEvent)
     };
     if (!props.sessionID || !props.messageID || !props.partID || !props.delta) return;
     if (!isTrackedSession(entry, props.sessionID)) return;
-    // Note: we do NOT trust `props.field` to disambiguate reasoning vs
-    // text. Opencode emits `field: "text"` for both kinds; the actual
-    // distinction lives on the part's `type`, which we only see via
-    // `message.part.updated`. The flusher resolves the kind at apply
-    // time, falling back to `pendingDeltas` if the part hasn't been
-    // declared yet.
-    entry.deltaFlushBuffer.push({
-      sessionId: props.sessionID!,
-      messageId: props.messageID!,
-      partId: props.partID!,
-      reasoning: false,
-      delta: props.delta!,
-    });
-    scheduleDeltaFlush(entry, workspaceId);
+    // Stream deltas immediately so users see content arriving in real time.
+    // Previously we buffered until `message.part.updated` declared the part
+    // type, but that meant reasoning content stayed invisible for long
+    // periods during the "Thinking" phase. Now we append deltas right away
+    // as text parts; when `message.part.updated` arrives it upgrades the
+    // part to the correct type (reasoning, tool, etc) and the UI re-renders
+    // with proper styling.
+    const queryClient = getReactQueryClient();
+    queryClient.setQueryData<UIMessage[]>(
+      transcriptKey(workspaceId, props.sessionID!),
+      (current = []) => {
+        let msgIdx = current.findIndex((m) => m.id === props.messageID);
+        let next = current;
+        if (msgIdx === -1) {
+          // Create a stub message if it doesn't exist yet
+          const stub = { id: props.messageID!, role: "assistant" as const, parts: [] };
+          next = [...current, stub];
+          msgIdx = next.length - 1;
+        }
+        const msg = next[msgIdx]!;
+        const partIdx = msg.parts.findIndex(
+          (p) => ("id" in p && p.id === props.partID) || (p.type === "text" && p.state === "streaming"),
+        );
+        const nextParts = msg.parts.slice();
+        if (partIdx === -1) {
+          // Create a streaming text part
+          nextParts.push({ type: "text" as const, text: props.delta!, state: "streaming" as const, id: props.partID! });
+        } else {
+          // Append to existing part
+          const existing = nextParts[partIdx]!;
+          nextParts[partIdx] = { ...existing, text: (existing.text || "") + props.delta!, state: "streaming" as const };
+        }
+        const updated = next.slice();
+        updated[msgIdx] = { ...msg, parts: nextParts };
+        return updated;
+      },
+    );
     return;
   }
 
