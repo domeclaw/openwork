@@ -31,14 +31,18 @@ import { createProviderAuthStore, useProviderAuthStoreSnapshot } from "../domain
 import ProviderAuthModal from "../domains/connections/provider-auth/provider-auth-modal";
 import ConnectionsModals from "../domains/connections/modals";
 import { AiSettingsView } from "../domains/settings/pages/ai-view";
+import { PreferencesView } from "../domains/settings/pages/preferences-view";
 import { ShellCustomizationView } from "../domains/settings/pages/shell-view";
 import { GeneralSettingsView } from "../domains/settings/pages/general-view";
 import { AuthorizedFoldersPanel } from "../domains/settings/panels/authorized-folders-panel";
 import { SettingsStack } from "../domains/settings/settings-section";
 import { AdvancedView } from "../domains/settings/pages/advanced-view";
 import { AppearanceView } from "../domains/settings/pages/appearance-view";
+import { CloudAccountView } from "../domains/settings/pages/cloud-account-view";
+import { CloudMarketplacesView } from "../domains/settings/pages/cloud-marketplaces-view";
+import { CloudProvidersView } from "../domains/settings/pages/cloud-providers-view";
+import { CloudWorkersView } from "../domains/settings/pages/cloud-workers-view";
 import { DebugView } from "../domains/settings/pages/debug-view";
-import { DenView } from "../domains/settings/pages/den-view";
 import { EnvironmentView } from "../domains/settings/pages/environment-view";
 import { ExtensionsView } from "../domains/settings/pages/extensions-view";
 import { McpView } from "../domains/settings/pages/mcp-view";
@@ -49,6 +53,8 @@ import { UpdatesView } from "../domains/settings/pages/updates-view";
 import { useDebugViewModel } from "../domains/settings/state/debug-view-model";
 import { useMessagingViewProps } from "../domains/settings/state/messaging-view-state";
 import { useElectronUpdaterState } from "../domains/settings/state/electron-updater-state";
+import { CloudSessionProvider } from "../domains/settings/cloud/cloud-session-provider";
+import { useDenSession } from "../domains/settings/cloud/use-den-session";
 import { useBootState } from "./boot-state";
 import { SettingsShell } from "../domains/settings/shell/settings-shell";
 import { createExtensionsStore, useExtensionsStoreSnapshot } from "../domains/settings/state/extensions-store";
@@ -281,10 +287,9 @@ function parseSettingsPath(pathname: string): {
   switch (head) {
     case "general":
     case "ai":
+    case "preferences":
     case "permissions":
     case "shell":
-    case "den":
-    case "skills":
     case "advanced":
     case "appearance":
     case "environment":
@@ -292,13 +297,18 @@ function parseSettingsPath(pathname: string): {
     case "recovery":
     case "debug":
       return { tab: head, redirectPath: null };
+    case "cloud-account":
+    case "cloud-marketplaces":
+    case "cloud-workers":
+    case "cloud-providers":
+      return { tab: head, redirectPath: null };
+    case "den":
+      return { tab: "cloud-account", redirectPath: "cloud-account" };
     case "extensions":
       if (tail === "mcp") return { tab: "extensions", redirectPath: null, extensionsSection: "mcp" };
       if (tail === "skills") return { tab: "extensions", redirectPath: null, extensionsSection: "skills" };
       if (tail === "plugins") return { tab: "extensions", redirectPath: null, extensionsSection: "plugins" };
       return { tab: "extensions", redirectPath: null, extensionsSection: "all" };
-    case "skills":
-      return { tab: "extensions", redirectPath: "extensions/skills", extensionsSection: "skills" };
     default:
       return { tab: "general", redirectPath: "general" };
   }
@@ -369,7 +379,7 @@ function applyThemeMode(mode: PersistedThemeMode) {
   document.documentElement.dataset.theme = resolved;
 }
 
-export function SettingsRoute() {
+function SettingsRouteContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams<{ workspaceId?: string }>();
@@ -409,7 +419,10 @@ export function SettingsRoute() {
   const [providerDefaults, setProviderDefaults] = useState<Record<string, string>>({});
   const [providerConnectedIds, setProviderConnectedIds] = useState<string[]>([]);
   const [disabledProviders, setDisabledProviders] = useState<string[]>([]);
-  const [developerMode, setDeveloperMode] = useState(false);
+  const [developerMode, setDeveloperMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("openwork.developerMode") === "1";
+  });
   const [themeMode, setThemeMode] = useState<PersistedThemeMode>(readStoredThemeMode);
   const [hideTitlebar, setHideTitlebar] = useState(() => readStoredBoolean(SETTINGS_HIDE_TITLEBAR_KEY, false));
   const [updateAutoCheck, setUpdateAutoCheck] = useState(() =>
@@ -679,6 +692,11 @@ export function SettingsRoute() {
   const connectionsSnapshot = useConnectionsStoreSnapshot(connectionsStore);
   const providerAuthSnapshot = useProviderAuthStoreSnapshot(providerAuthStore);
   useExtensionsStoreSnapshot(extensionsStore);
+
+  const denSession = useDenSession({
+    developerMode,
+    openLink: (url) => platform.openLink(url),
+  });
 
   const shareWorkspaceState = useShareWorkspaceState({
     workspaces,
@@ -1100,7 +1118,7 @@ export function SettingsRoute() {
   useCloudProviderAutoSync(providerAuthStore.runCloudProviderSync);
 
   useEffect(() => {
-    if (route.tab !== "den") return;
+    if (route.tab !== "cloud-providers") return;
     void providerAuthStore.runCloudProviderSync("settings_cloud_opened");
   }, [providerAuthStore, route.tab]);
 
@@ -1437,6 +1455,10 @@ export function SettingsRoute() {
     return <Navigate to={workspaceSettingsRoute(selectedWorkspaceId, settingsPathForRoute(route))} replace state={location.state} />;
   }
 
+  const openCloudAccountSettings = () => {
+    navigate(selectedWorkspaceId ? workspaceSettingsRoute(selectedWorkspaceId, "cloud-account") : "/settings/cloud-account");
+  };
+
   const settingsView = (() => {
     switch (route.tab) {
       case "general":
@@ -1485,6 +1507,12 @@ export function SettingsRoute() {
               await providerAuthStore.disconnectProvider(providerId);
             }}
             canDisconnectProvider={() => true}
+          />
+        );
+      case "preferences":
+        return (
+          <PreferencesView
+            busy={busy}
             defaultModelLabel={defaultModelLabel}
             defaultModelRef={defaultModelRef}
             onChangeDefaultModel={() => {
@@ -1495,15 +1523,9 @@ export function SettingsRoute() {
             onToggleShowThinking={() => {
               local.setPrefs((previous) => ({ ...previous, showThinking: !previous.showThinking }));
             }}
-            defaultModelVariantLabel={defaultModelVariantLabel}
-            onConfigureModelBehavior={() => {
-              setRouteError("Model behavior picker is not wired into the React settings route yet.");
-            }}
             autoCompactContext={false}
             autoCompactContextBusy={false}
-            onToggleAutoCompactContext={() => {
-              setRouteError("Auto-compact controls are not wired into the React settings route yet.");
-            }}
+            onToggleAutoCompactContext={() => {}}
           />
         );
       case "shell":
@@ -1619,18 +1641,38 @@ export function SettingsRoute() {
             }}
           />
         );
-      case "den":
+      case "cloud-account":
         return (
-          <DenView
+          <CloudAccountView
             developerMode={developerMode}
+            session={denSession}
+          />
+        );
+      case "cloud-marketplaces":
+        return (
+          <CloudMarketplacesView
             extensions={extensionsStore}
-            openLink={(url) => platform.openLink(url)}
+            session={denSession}
+            onOpenAccount={openCloudAccountSettings}
+          />
+        );
+      case "cloud-workers":
+        return (
+          <CloudWorkersView
             connectRemoteWorkspace={async () => false}
+            onOpenAccount={openCloudAccountSettings}
+          />
+        );
+      case "cloud-providers":
+        return (
+          <CloudProvidersView
             cloudOrgProviders={providerAuthSnapshot.cloudOrgProviders}
-            importedCloudProviders={providerAuthSnapshot.importedCloudProviders}
-            refreshCloudOrgProviders={providerAuthStore.refreshCloudOrgProviders}
             connectCloudProvider={providerAuthStore.connectCloudProvider}
+            importedCloudProviders={providerAuthSnapshot.importedCloudProviders}
+            onOpenAccount={openCloudAccountSettings}
+            refreshCloudOrgProviders={providerAuthStore.refreshCloudOrgProviders}
             removeCloudProvider={providerAuthStore.removeCloudProvider}
+            session={denSession}
           />
         );
       case "advanced":
@@ -1649,7 +1691,11 @@ export function SettingsRoute() {
             restartLocalServer={handleRestartLocalServer}
             stopHost={() => {}}
             developerMode={developerMode}
-            toggleDeveloperMode={() => setDeveloperMode((current) => !current)}
+            toggleDeveloperMode={() => setDeveloperMode((current) => {
+              const next = !current;
+              try { window.localStorage.setItem("openwork.developerMode", next ? "1" : "0"); } catch {}
+              return next;
+            })}
             opencodeDevModeEnabled={false}
             openDebugDeepLink={async () => ({ ok: false, message: "Debug deep links are not wired into the React settings route yet." })}
             opencodeEnableExa={true}
@@ -1915,5 +1961,13 @@ export function SettingsRoute() {
         onClose={() => setModelPickerOpen(false)}
       />
     </>
+  );
+}
+
+export function SettingsRoute() {
+  return (
+    <CloudSessionProvider>
+      <SettingsRouteContent />
+    </CloudSessionProvider>
   );
 }

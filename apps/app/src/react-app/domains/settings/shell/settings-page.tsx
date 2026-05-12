@@ -4,16 +4,22 @@ import {
   ArrowLeft,
   Bug,
   ChevronDown,
-  Cloud,
+  CloudCog,
   Cog,
+  Container,
   FolderLock,
+  Layout,
   Paintbrush,
   Puzzle,
   RefreshCcw,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
+  Store,
   Terminal,
+  UserCircle,
   Wrench,
+  Zap,
 } from "lucide-react";
 
 import {
@@ -52,13 +58,21 @@ import { WorkspaceIcon } from "../../../design-system/workspace-icon";
 export function getSettingsTabIcon(tab: SettingsTab) {
   switch (tab) {
     case "ai":
-      return Sparkles;
+      return Zap;
+    case "preferences":
+      return SlidersHorizontal;
     case "shell":
-      return Paintbrush;
+      return Layout;
     case "permissions":
       return FolderLock;
-    case "den":
-      return Cloud;
+    case "cloud-account":
+      return UserCircle;
+    case "cloud-marketplaces":
+      return Store;
+    case "cloud-workers":
+      return Container;
+    case "cloud-providers":
+      return CloudCog;
     case "skills":
       return Sparkles;
     case "extensions":
@@ -83,13 +97,21 @@ export function getSettingsTabIcon(tab: SettingsTab) {
 export function getSettingsTabLabel(tab: SettingsTab) {
   switch (tab) {
     case "ai":
-      return "AI";
+      return "AI Providers";
+    case "preferences":
+      return "Preferences";
     case "shell":
       return "Customization";
     case "permissions":
       return "Permissions";
-    case "den":
-      return t("settings.tab_cloud");
+    case "cloud-account":
+      return t("settings.tab_cloud_account");
+    case "cloud-marketplaces":
+      return t("settings.tab_cloud_marketplaces");
+    case "cloud-workers":
+      return t("settings.tab_cloud_workers");
+    case "cloud-providers":
+      return t("settings.tab_cloud_providers");
     case "skills":
       return t("settings.tab_skills");
     case "extensions":
@@ -116,13 +138,21 @@ export function getSettingsTabLabel(tab: SettingsTab) {
 export function getSettingsTabDescription(tab: SettingsTab) {
   switch (tab) {
     case "ai":
-      return "Models, providers, and reasoning";
+      return "Connect services that provide AI models";
+    case "preferences":
+      return "Default model, reasoning, and compaction";
     case "shell":
       return "Branding, visibility, and shell controls";
     case "permissions":
       return "Authorized folders and file access";
-    case "den":
-      return t("settings.tab_description_den");
+    case "cloud-account":
+      return t("settings.tab_description_cloud_account");
+    case "cloud-marketplaces":
+      return t("settings.tab_description_cloud_marketplaces");
+    case "cloud-workers":
+      return t("settings.tab_description_cloud_workers");
+    case "cloud-providers":
+      return t("settings.tab_description_cloud_providers");
     case "skills":
       return t("settings.tab_description_skills");
     case "extensions":
@@ -147,14 +177,21 @@ export function getSettingsTabDescription(tab: SettingsTab) {
 }
 
 export function getWorkspaceSettingsTabs(): SettingsTab[] {
-  return ["permissions", "extensions", "skills", "advanced"];
+  return ["preferences", "permissions", "extensions", "skills", "advanced"];
 }
 
 export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
-  const tabs: SettingsTab[] = ["ai", "shell", "den", "appearance", "environment", "updates", "recovery"];
+  const tabs: SettingsTab[] = ["ai", "shell", "appearance", "environment", "updates", "recovery"];
   if (developerMode) tabs.push("debug");
   return tabs;
 }
+
+export const CLOUD_SETTINGS_TABS: SettingsTab[] = [
+  "cloud-account",
+  "cloud-marketplaces",
+  "cloud-workers",
+  "cloud-providers",
+];
 
 type SettingsPageProps = {
   activeTab: SettingsTab;
@@ -184,6 +221,7 @@ type SettingsSidebarProps = Pick<SettingsPageProps, "activeTab" | "onSelectTab" 
 export function SettingsSidebar(props: SettingsSidebarProps) {
   const workspaceTabs = getWorkspaceSettingsTabs();
   const globalTabs = getGlobalSettingsTabs(props.developerMode);
+  const cloudTabs = CLOUD_SETTINGS_TABS;
 
   return (
     <Sidebar className="mac:**:data-[sidebar=sidebar]:bg-transparent">
@@ -270,6 +308,29 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {globalTabs.map((tab) => {
+                const Icon = getSettingsTabIcon(tab);
+                return (
+                  <SidebarMenuItem key={tab}>
+                    <SidebarMenuButton
+                      type="button"
+                      isActive={props.activeTab === tab}
+                      onClick={() => props.onSelectTab(tab)}
+                    >
+                      <Icon />
+                      <span>{getSettingsTabLabel(tab)}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>{t("settings.group_cloud")}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {cloudTabs.map((tab) => {
                 const Icon = getSettingsTabIcon(tab);
                 return (
                   <SidebarMenuItem key={tab}>
