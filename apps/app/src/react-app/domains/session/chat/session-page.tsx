@@ -41,8 +41,7 @@ import { StatusBar, type StatusBarProps } from "./status-bar";
 import { OwDotTicker } from "../../../shell/dot-ticker";
 import { useReactRenderWatchdog } from "../../../shell/react-render-watchdog";
 import { useShellConfig } from "../../../shell/shell-config";
-import { ProviderOnboardingModal } from "../../../design-system/provider-onboarding-modal";
-import { ProviderAddedToast } from "../../../design-system/provider-added-toast";
+
 import { isElectronRuntime } from "../../../../app/utils";
 import { BrowserPanel } from "../browser/browser-panel";
 import { useWorkspaceShellLayout } from "../../../shell/workspace-shell-layout";
@@ -183,9 +182,7 @@ function sessionTitleForId(groups: WorkspaceSessionGroup[], id: string | null | 
 
 export function SessionPage(props: SessionPageProps) {
   const { config: shellConfig } = useShellConfig();
-  // Provider onboarding + new-provider notification (triggered by cloud sync)
-  const [showProviderOnboarding, setShowProviderOnboarding] = useState(false);
-  const [showProviderToast, setShowProviderToast] = useState(false);
+
   useReactRenderWatchdog("SessionPage", {
     selectedSessionId: props.selectedSessionId,
     selectedWorkspaceId: props.selectedWorkspaceId,
@@ -454,7 +451,21 @@ export function SessionPage(props: SessionPageProps) {
                 </button>
               ) : null}
               {/* Revert/redo moved to per-message actions */}
-
+              {props.developerMode ? (
+                <button
+                  type="button"
+                  className="rounded-md px-2 py-1 text-[10px] font-medium text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text"
+                  onClick={() => {
+                    try {
+                      window.localStorage.removeItem("openwork.acknowledgedProviders");
+                      window.localStorage.removeItem("openwork.orgOnboardingSeen");
+                    } catch {}
+                  }}
+                  title="Clears acknowledged providers + org onboarding so they trigger again"
+                >
+                  Reset notifications
+                </button>
+              ) : null}
             </div>
           </header>
 
@@ -791,22 +802,7 @@ export function SessionPage(props: SessionPageProps) {
         }}
       />
 
-      {/* Provider onboarding + new-provider notification */}
-      <ProviderOnboardingModal
-        open={showProviderOnboarding}
-        onClose={() => setShowProviderOnboarding(false)}
-        orgName=""
-        providers={[]}
-        onAcceptDefaults={() => setShowProviderOnboarding(false)}
-        onConfigureManually={() => setShowProviderOnboarding(false)}
-      />
-      <ProviderAddedToast
-        open={showProviderToast}
-        providerName=""
-        providerId=""
-        onSwitchDefault={() => setShowProviderToast(false)}
-        onDismiss={() => setShowProviderToast(false)}
-      />
+      {/* Cloud provider notifications are now handled globally by CloudProvidersToast in app-root.tsx */}
     </div>
   );
 }

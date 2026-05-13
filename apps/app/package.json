@@ -1,7 +1,7 @@
 {
   "name": "@openwork/app",
   "private": true,
-  "version": "0.13.5",
+  "version": "0.13.8",
   "type": "module",
   "scripts": {
     "dev": "OPENWORK_DEV_MODE=1 vite",
@@ -46,7 +46,7 @@
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@lexical/react": "^0.35.0",
-    "@opencode-ai/sdk": "^1.14.48",
+    "@opencode-ai/sdk": "^1.14.38",
     "@openwork/types": "workspace:*",
     "@openwork/ui": "workspace:*",
     "@radix-ui/colors": "^3.0.0",

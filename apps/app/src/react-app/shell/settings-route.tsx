@@ -75,6 +75,7 @@ import {
   workspaceSetSelected,
   workspaceUpdateDisplayName,
   type WorkspaceInfo,
+  type WorkspaceList,
   revealDesktopItemInDir,
 } from "../../app/lib/desktop";
 import { isDesktopProviderBlocked } from "../../app/cloud/desktop-app-restrictions";
@@ -200,7 +201,7 @@ function mergeRouteWorkspaces(
 function reconcileSelectedWorkspaceId(
   currentId: string,
   serverList: { activeId?: string | null },
-  desktopList: Awaited<ReturnType<typeof workspaceBootstrap>> | null,
+  desktopList: WorkspaceList | null,
   workspaces: RouteWorkspace[],
 ) {
   const current = currentId.trim();
@@ -306,7 +307,7 @@ function parseSettingsPath(pathname: string): {
       return { tab: "cloud-account", redirectPath: "cloud-account" };
     case "extensions":
       if (tail === "mcp") return { tab: "extensions", redirectPath: null, extensionsSection: "mcp" };
-      if (tail === "skills") return { tab: "extensions", redirectPath: null, extensionsSection: "skills" };
+      if (tail === "skills") return { tab: "extensions", redirectPath: null, extensionsSection: "all" };
       if (tail === "plugins") return { tab: "extensions", redirectPath: null, extensionsSection: "plugins" };
       return { tab: "extensions", redirectPath: null, extensionsSection: "all" };
     default:
@@ -443,6 +444,9 @@ function SettingsRouteContent() {
   const [renameWorkspaceTitle, setRenameWorkspaceTitle] = useState("");
   const [renameWorkspaceBusy, setRenameWorkspaceBusy] = useState(false);
   const [exportWorkspaceBusy, setExportWorkspaceBusy] = useState(false);
+  const [autoCompactContext, setAutoCompactContext] = useState(true);
+  const [autoCompactContextBusy, setAutoCompactContextBusy] = useState(false);
+  const [autoCompactContextLoaded, setAutoCompactContextLoaded] = useState(false);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelPickerQuery, setModelPickerQuery] = useState("");
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
@@ -769,10 +773,18 @@ function SettingsRouteContent() {
         });
         const data = (res as { data?: { providers?: Array<{ id: string; name: string; source?: string; models: Record<string, { id: string; name: string }> }> } }).data;
         if (cancelled || !data?.providers) return;
+        let seenIds: Set<string>;
+        try {
+          const raw = window.localStorage.getItem("openwork.seenProviderIds");
+          seenIds = new Set(raw ? JSON.parse(raw) : []);
+        } catch {
+          seenIds = new Set();
+        }
         const options: ModelOption[] = [];
         for (const provider of data.providers) {
           const modelIds = Object.keys(provider.models);
           const hasModels = modelIds.length > 0;
+          const isNew = !seenIds.has(provider.id);
           for (const id of modelIds) {
             const model = provider.models[id];
             options.push({
@@ -786,6 +798,8 @@ function SettingsRouteContent() {
               behaviorValue: null,
               isFree: false,
               isConnected: hasModels,
+              isRecommended: isNew,
+              source: /^lpr_/i.test(provider.id) ? "cloud" as const : undefined,
             });
           }
         }
@@ -834,12 +848,12 @@ function SettingsRouteContent() {
     refreshInFlightRef.current = true;
     setLoading(true);
     setRouteError(null);
-    let desktopList = null as Awaited<ReturnType<typeof workspaceBootstrap>> | null;
+    let desktopList: WorkspaceList | null = null;
     let desktopWorkspaces = workspacesRef.current;
     try {
       if (isDesktopRuntime()) {
         try {
-          desktopList = await workspaceBootstrap();
+          desktopList = await workspaceBootstrap() as WorkspaceList;
           desktopWorkspaces = (desktopList.workspaces ?? []).map(mapDesktopWorkspace);
         } catch (error) {
           const message = describeRouteError(error);
@@ -1098,6 +1112,51 @@ function SettingsRouteContent() {
     };
   }, [refreshRouteState]);
 
+  // Load auto-compaction state from OpenCode config on workspace change.
+  useEffect(() => {
+    if (!openworkClient || !selectedWorkspaceId) return;
+    const workspaceId = routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId;
+    let cancelled = false;
+    (async () => {
+      try {
+        const config = await openworkClient.getConfig(workspaceId);
+        if (cancelled) return;
+        const compaction = config.opencode?.compaction;
+        const auto = compaction && typeof compaction === "object" && "auto" in compaction
+          ? (compaction as { auto?: boolean }).auto
+          : undefined;
+        setAutoCompactContext(auto !== false);
+        setAutoCompactContextLoaded(true);
+      } catch {
+        if (!cancelled) setAutoCompactContextLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [openworkClient, selectedWorkspaceId]);
+
+  const toggleAutoCompactContext = useCallback(async () => {
+    if (autoCompactContextBusy) return;
+    const workspaceId = routeStateRef.current.runtimeWorkspaceId?.trim() || selectedWorkspaceId;
+    if (!openworkClient || !workspaceId) return;
+    const next = !autoCompactContext;
+    setAutoCompactContext(next);
+    setAutoCompactContextBusy(true);
+    try {
+      await openworkClient.patchConfig(workspaceId, {
+        opencode: { compaction: { auto: next } },
+      });
+      reloadCoordinator.markReloadRequired("config", {
+        type: "config",
+        name: "opencode.json",
+        action: "updated",
+      });
+    } catch {
+      setAutoCompactContext(!next);
+    } finally {
+      setAutoCompactContextBusy(false);
+    }
+  }, [autoCompactContext, autoCompactContextBusy, openworkClient, reloadCoordinator, selectedWorkspaceId]);
+
   useEffect(() => {
     openworkServerStore.start();
     connectionsStore.start();
@@ -1345,7 +1404,7 @@ function SettingsRouteContent() {
         folderPath: folder,
         name: workspaceName,
         preset,
-      });
+      }) as WorkspaceList;
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       if (createdId) {
         await workspaceSetSelected(createdId).catch(() => undefined);
@@ -1388,7 +1447,7 @@ function SettingsRouteContent() {
         displayName: input.displayName?.trim() || null,
         directory: input.directory?.trim() || null,
         remoteType: "openwork",
-      });
+      }) as WorkspaceList;
       const createdId = resolveWorkspaceListSelectedId(list) || list.workspaces[list.workspaces.length - 1]?.id || "";
       if (createdId) {
         await workspaceSetSelected(createdId).catch(() => undefined);
@@ -1507,6 +1566,9 @@ function SettingsRouteContent() {
               await providerAuthStore.disconnectProvider(providerId);
             }}
             canDisconnectProvider={() => true}
+            cloudProviderIds={new Set(
+              Object.values(providerAuthSnapshot.importedCloudProviders ?? {}).map((p) => p.providerId)
+            )}
           />
         );
       case "preferences":
@@ -1523,32 +1585,13 @@ function SettingsRouteContent() {
             onToggleShowThinking={() => {
               local.setPrefs((previous) => ({ ...previous, showThinking: !previous.showThinking }));
             }}
-            autoCompactContext={false}
-            autoCompactContextBusy={false}
-            onToggleAutoCompactContext={() => {}}
+            autoCompactContext={autoCompactContext}
+            autoCompactContextBusy={autoCompactContextBusy}
+            onToggleAutoCompactContext={toggleAutoCompactContext}
           />
         );
       case "shell":
         return <ShellCustomizationView />;
-      case "automations":
-        return (
-          <AutomationsView
-            automations={automationsStore}
-            busy={busy}
-            selectedWorkspaceRoot={selectedWorkspaceRoot}
-            createSessionAndOpen={async () => undefined}
-            newTaskDisabled={!opencodeClient}
-            schedulerInstalled={false}
-            canEditPlugins={canWriteWorkspacePlugins}
-            addPlugin={async () => {
-              setRouteError("Scheduler plugin install is not wired into the React settings route yet.");
-            }}
-            reloadWorkspaceEngine={reloadCoordinator.reloadWorkspaceEngine}
-            reloadBusy={false}
-            canReloadWorkspace={reloadCoordinator.canReloadWorkspaceEngine}
-            openLink={(url) => platform.openLink(url)}
-          />
-        );
       case "skills":
         return (
           <SkillsView
@@ -1795,8 +1838,6 @@ function SettingsRouteContent() {
             runtimeKey={environmentRuntimeKey}
           />
         );
-      case "messaging":
-        return <MessagingView {...messagingViewProps} />;
       case "debug":
         return <DebugView {...debugViewProps} />;
       default:
