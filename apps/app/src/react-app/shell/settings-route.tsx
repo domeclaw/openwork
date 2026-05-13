@@ -291,6 +291,7 @@ function parseSettingsPath(pathname: string): {
     case "preferences":
     case "permissions":
     case "shell":
+    case "skills":
     case "advanced":
     case "appearance":
     case "environment":
@@ -1665,23 +1666,6 @@ function SettingsRouteContent() {
               />
             }
 
-          />
-        );
-      case "skills":
-        return (
-          <SkillsView
-            busy={busy}
-            workspaceName={selectedWorkspaceName}
-            showHeader={true}
-            canInstallSkillCreator={canWriteWorkspaceSkills}
-            canUseDesktopTools={isElectronRuntime()}
-            accessHint={skillsAccessHint}
-            extensions={extensionsStore}
-            onOpenLink={(url) => platform.openLink(url)}
-            createSessionAndOpen={async (command?: string): Promise<string | undefined> => {
-              navigate(selectedWorkspaceId ? workspaceSessionRoute(selectedWorkspaceId) : "/session");
-              return undefined;
-            }}
           />
         );
       case "cloud-account":
