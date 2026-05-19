@@ -2,17 +2,9 @@ name: Build THWork Desktop (tkwork-lite)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - tkwork-lite
-    paths:
-      - apps/app/**
-      - apps/desktop/**
-      - packages/ui/**
-      - constants.json
-      - pnpm-lock.yaml
-      - package.json
-      - .github/workflows/build-thwork-tkwork-lite.yml
+  create:
+    tags:
+      - '*'
 
 jobs:
   build-thwork:
