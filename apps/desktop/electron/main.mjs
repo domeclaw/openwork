@@ -2918,6 +2918,15 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(async () => {
     installApplicationMenu();
+
+    // Set About panel for macOS
+    if (process.platform === "darwin") {
+      app.setAboutPanelOptions({
+        applicationName: APP_NAME,
+        applicationVersion: app.getVersion(),
+        copyright: "© 2024 THWork",
+      });
+    }
     await installReactDevToolsForDev();
     await runtimeManager.prepareFreshRuntime().catch(() => undefined);
 
