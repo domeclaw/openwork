@@ -1863,6 +1863,85 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     listeners.clear();
   };
 
+  async function addCustomOpenAiCompatibleProvider(input: {
+    name: string;
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  }): Promise<string> {
+    setStateField("providerAuthError", null);
+
+    const { name, baseUrl, apiKey, model } = input;
+    const trimmedName = name.trim();
+    const trimmedBaseUrl = baseUrl.trim().replace(/\/$/, "");
+    const trimmedApiKey = apiKey.trim();
+    const trimmedModel = model.trim();
+
+    if (!trimmedName) throw new Error("Provider name is required");
+    if (!trimmedBaseUrl) throw new Error("Base URL is required");
+    if (!trimmedApiKey) throw new Error("API key is required");
+    if (!trimmedModel) throw new Error("Model name is required");
+
+    // Validate base URL format
+    try {
+      new URL(trimmedBaseUrl);
+    } catch {
+      throw new Error("Invalid base URL format");
+    }
+
+    const providerId = trimmedName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+
+    // Build the provider config
+    const providerConfig = {
+      id: providerId,
+      name: trimmedName,
+      npm: "@ai-sdk/openai-compatible",
+      options: {
+        baseURL: trimmedBaseUrl,
+      },
+      env: [`${providerId.toUpperCase().replace(/-/g, "_")}_API_KEY`],
+      models: {
+        [trimmedModel]: {
+          name: trimmedModel,
+        },
+      },
+    };
+
+    // Format the config and write to opencode.jsonc
+    const updatedConfig = await updateProjectConfigFile((raw) => {
+      let content = raw.trim()
+        ? raw
+        : '{\n  "$schema": "https://opencode.ai/config.json"\n}\n';
+
+      const edits = modify(content, ["provider", providerId], providerConfig, {
+        formattingOptions: { insertSpaces: true, tabSize: 2 },
+      });
+      content = applyEdits(content, edits);
+
+      return content.endsWith("\n") ? content : `${content}\n`;
+    });
+
+    if (!updatedConfig) {
+      throw new Error("Could not write provider config to opencode.jsonc");
+    }
+
+    // Now save the API key
+    const c = options.client();
+    if (!c) {
+      throw new Error(t("providers.not_connected"));
+    }
+
+    try {
+      await c.auth.set({ providerID: providerId, auth: { type: "api", key: trimmedApiKey } });
+      await refreshProviders({ dispose: true });
+      return `${t("status.connected")} ${trimmedName}`;
+    } catch (error) {
+      const message = describeProviderError(error, t("providers.save_api_key_failed"));
+      setStateField("providerAuthError", message);
+      throw error instanceof Error ? error : new Error(message);
+    }
+  }
+
   refreshSnapshot();
 
   return {
@@ -1883,6 +1962,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     ensureProjectProviderDisabledState,
     openProviderAuthModal,
     closeProviderAuthModal,
+    addCustomOpenAiCompatibleProvider,
   };
 }
 

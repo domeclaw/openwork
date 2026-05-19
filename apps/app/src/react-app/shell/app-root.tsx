@@ -226,7 +226,8 @@ export function AppRoot() {
         self-renders for every real user-visible commit, masking the
         true app-level signal.
       */}
-      <NewProvidersToast />
+      {/* NewProvidersToast disabled for tkwork-lite - no cloud support */}
+      {/* <NewProvidersToast /> */}
       <DevProfilerOverlay />
       <ReactRenderWatchdogOverlay />
     </>

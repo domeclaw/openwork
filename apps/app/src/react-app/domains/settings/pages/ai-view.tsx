@@ -58,7 +58,12 @@ function providerStatusTone(label: string): "ready" | "warning" | "neutral" {
   return "neutral";
 }
 
+// Allowed predefined provider IDs
+// Custom providers (added via "Add Custom Provider") are always shown
 export function AiSettingsView(props: AiSettingsViewProps) {
+  // Show all connected providers: predefined + custom
+  const showConnectedProviders = props.connectedProviders;
+
   return (
     <LayoutStack>
       {/* ---- Providers ---- */}
@@ -90,29 +95,9 @@ export function AiSettingsView(props: AiSettingsViewProps) {
           </LayoutSectionItemHeader>
         </LayoutSectionItem>
 
-        {props.showOpenWorkModelsSubscribe ? (
-          <LayoutSectionItem className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-6 bg-blue-2/30 px-4 py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <ProviderIcon providerId="openwork" size={20} className="text-blue-11" />
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-dls-text">OpenWork Models</div>
-                <div className="text-xs text-muted-foreground">
-                  Frontier intelligence, hand picked for your team&apos;s most ambitious work.
-                </div>
-              </div>
-            </div>
-            <Button
-              onClick={() => void props.onSubscribeOpenWorkModels?.()}
-              disabled={props.busy || props.providerAuthBusy}
-            >
-              Subscribe
-            </Button>
-          </LayoutSectionItem>
-        ) : null}
-
-        {props.connectedProviders.length > 0 ? (
+        {showConnectedProviders.length > 0 ? (
           <div className="space-y-2">
-            {props.connectedProviders.map((provider) => (
+            {showConnectedProviders.map((provider) => (
               <LayoutSectionItem
                 key={provider.id}
                 className="flex-row flex-wrap items-center justify-between gap-3 rounded-2xl border border-dls-border px-4 py-3"

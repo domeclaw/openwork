@@ -1990,6 +1990,14 @@ function SettingsRouteContent() {
         onRefreshProviders={providerAuthStore.refreshProviders}
         showOpenWorkModelsSubscribe={showOpenWorkModelsSubscribe}
         onSubscribeOpenWorkModels={subscribeToOpenWorkModels}
+        onAddCustomProvider={async (input) => {
+          try {
+            await providerAuthStore.addCustomOpenAiCompatibleProvider(input);
+            return;
+          } catch (error) {
+            return { error: error instanceof Error ? error.message : "Failed to add provider" };
+          }
+        }}
         onClose={() => providerAuthStore.closeProviderAuthModal()}
       />
       <CreateWorkspaceModal

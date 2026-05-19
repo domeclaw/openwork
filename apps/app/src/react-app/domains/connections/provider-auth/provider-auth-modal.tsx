@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Loader2,
+  Plus,
   Search,
 } from "lucide-react";
 import {
@@ -58,6 +59,13 @@ const PROVIDER_LABELS: Record<string, string> = {
 
 const OPENWORK_MODELS_PROVIDER_ID = "openwork";
 
+// Allowed provider IDs for Connect providers (predefined providers)
+const ALLOWED_PROVIDER_IDS = new Set(["opencode", "opencode-go", "alibaba-coding-plan"]);
+
+// Custom providers are dynamically added - they should be shown in the list
+// The filter is applied to authMethods, so custom providers from opencode.jsonc
+// will appear if they have auth methods defined
+
 export type ProviderAuthModalProps = {
   open: boolean;
   loading: boolean;
@@ -79,6 +87,12 @@ export type ProviderAuthModalProps = {
   onRefreshProviders?: () => Promise<unknown>;
   showOpenWorkModelsSubscribe?: boolean;
   onSubscribeOpenWorkModels?: () => void | Promise<void>;
+  onAddCustomProvider?: (input: {
+    name: string;
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  }) => Promise<{ error?: string } | void>;
   onClose: () => void;
 };
 
@@ -87,7 +101,7 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   const isRemoteWorker = workerType === "remote";
 
   const [view, setView] = useState<
-    "list" | "method" | "api" | "cloud" | "oauth-code" | "oauth-auto" | "openwork-subscribe"
+    "list" | "method" | "api" | "cloud" | "oauth-code" | "oauth-auto" | "openwork-subscribe" | "custom"
   >("list");
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
   const [selectedCloudMethod, setSelectedCloudMethod] = useState<ProviderAuthMethod | null>(null);
@@ -101,6 +115,13 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
   const [oauthAutoBusy, setOauthAutoBusy] = useState(false);
   const [oauthCodeCopied, setOauthCodeCopied] = useState(false);
   const [oauthBrowserOpened, setOauthBrowserOpened] = useState(false);
+  
+  // Custom provider form state
+  const [customProviderName, setCustomProviderName] = useState("");
+  const [customBaseUrl, setCustomBaseUrl] = useState("");
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [customModel, setCustomModel] = useState("");
+  const [customSubmitting, setCustomSubmitting] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const providerPollRef = useRef<number | null>(null);
@@ -175,6 +196,20 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     const providersById = new Map(providers.map((provider) => [provider.id, provider]));
     const nextEntries = Object.keys(methods)
       .flatMap((id) => {
+        const normalizedId = id.trim().toLowerCase();
+        
+        // Allow predefined providers AND custom providers (dynamic)
+        // Predefined: opencode, opencode-go, alibaba-coding-plan
+        // Custom: any provider added via "Add Custom Provider" feature
+        const isAllowedPredefined = ALLOWED_PROVIDER_IDS.has(normalizedId);
+        const isCustomProvider = !isAllowedPredefined;
+        
+        // Skip providers that are not predefined AND not connected (custom providers need auth first)
+        const isConnected = connected.has(id);
+        if (isCustomProvider && !isConnected) {
+          return [];
+        }
+
         const provider = providersById.get(id);
         const entryMethods = (methods[id] ?? []).filter((method) => {
           if (isAnthropicProvider(id, provider?.name) && isClaudeProMaxMethod(method)) {
@@ -196,29 +231,17 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
       })
       .sort(compareProviders);
 
-    if (props.showOpenWorkModelsSubscribe) {
-      const connectedToOpenWork = connected.has(OPENWORK_MODELS_PROVIDER_ID);
-      return [
-        {
-          id: OPENWORK_MODELS_PROVIDER_ID,
-          name: "OpenWork",
-          methods: [{ type: "cloud", label: "Subscribe" }],
-          connected: connectedToOpenWork,
-          env: [],
-        },
-        ...nextEntries.filter((entry) => entry.id.trim().toLowerCase() !== OPENWORK_MODELS_PROVIDER_ID),
-      ];
-    }
-
+    // Never show OpenWork Models subscribe option
     return nextEntries;
-  }, [isRemoteWorker, props.authMethods, props.connectedProviderIds, props.providers, props.showOpenWorkModelsSubscribe]);
+  }, [isRemoteWorker, props.authMethods, props.connectedProviderIds, props.providers]);
 
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.id === selectedProviderId) ?? null,
     [entries, selectedProviderId],
   );
 
-  const resolvedView = selectedEntry ? view : "list";
+  // Allow "custom" view without a selected entry
+  const resolvedView = selectedEntry || view === "custom" ? view : "list";
   const errorMessage = localError ?? props.error;
 
   const filteredEntries = useMemo(() => {
@@ -271,6 +294,12 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
     setLocalError(null);
     setOauthCodeCopied(false);
     setOauthBrowserOpened(false);
+    // Reset custom provider form
+    setCustomProviderName("");
+    setCustomBaseUrl("");
+    setCustomApiKey("");
+    setCustomModel("");
+    setCustomSubmitting(false);
   };
 
   const stopProviderPolling = () => {
@@ -812,6 +841,29 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   )}
 
                   <div className="text-[11px] text-gray-9">Arrow keys to navigate, Enter to select.</div>
+                  
+                  {/* Add Custom Provider Button */}
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-3 rounded-xl px-3.5 py-3 text-left transition-all duration-200 hover:bg-gray-3/30 border border-dashed border-gray-5/60 mt-4"
+                    onClick={() => {
+                      setLocalError(null);
+                      setView("custom");
+                    }}
+                    disabled={actionDisabled}
+                  >
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-dashed border-gray-5 bg-gray-2 shadow-sm">
+                      <Plus size={16} className="text-gray-11" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[14px] font-medium text-gray-12 truncate tracking-tight">
+                        Add Custom Provider
+                      </div>
+                      <div className="text-[11px] text-gray-9 font-mono truncate mt-0.5 opacity-60">
+                        OpenAI-compatible
+                      </div>
+                    </div>
+                  </button>
                 </div>
               ) : null}
 
@@ -958,6 +1010,115 @@ export default function ProviderAuthModal(props: ProviderAuthModalProps) {
                   <div className="flex items-center justify-end">
                     <Button onClick={() => void props.onSubscribeOpenWorkModels?.()} disabled={actionDisabled}>
                       Subscribe
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              {resolvedView === "custom" ? (
+                <div className="rounded-xl border border-gray-6/40 bg-gray-2/50 shadow-sm p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-12">Add Custom OpenAI-Compatible Provider</div>
+                      <div className="text-xs text-gray-10 mt-1">Enter your provider details below.</div>
+                    </div>
+                    <Button variant="outline" onClick={handleBack} disabled={actionDisabled || customSubmitting}>
+                      Back
+                    </Button>
+                  </div>
+                  <TextInput
+                    label="Provider Name"
+                    type="text"
+                    placeholder="e.g., My Provider"
+                    value={customProviderName}
+                    onChange={(event) => {
+                      setCustomProviderName(event.currentTarget.value);
+                      if (localError) setLocalError(null);
+                    }}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    disabled={actionDisabled || customSubmitting}
+                  />
+                  <TextInput
+                    label="Base URL"
+                    type="text"
+                    placeholder="https://api.example.com/v1"
+                    value={customBaseUrl}
+                    onChange={(event) => {
+                      setCustomBaseUrl(event.currentTarget.value);
+                      if (localError) setLocalError(null);
+                    }}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    disabled={actionDisabled || customSubmitting}
+                  />
+                  <TextInput
+                    label="API Key"
+                    type="password"
+                    placeholder="sk-..."
+                    value={customApiKey}
+                    onChange={(event) => {
+                      setCustomApiKey(event.currentTarget.value);
+                      if (localError) setLocalError(null);
+                    }}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    disabled={actionDisabled || customSubmitting}
+                  />
+                  <TextInput
+                    label="Model Name"
+                    type="text"
+                    placeholder="e.g., gpt-4o, claude-3-sonnet"
+                    value={customModel}
+                    onChange={(event) => {
+                      setCustomModel(event.currentTarget.value);
+                      if (localError) setLocalError(null);
+                    }}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    disabled={actionDisabled || customSubmitting}
+                  />
+                  {localError ? (
+                    <div className="rounded-lg border border-red-6/30 bg-red-2/30 px-3 py-2 text-xs text-red-11">
+                      {localError}
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[11px] text-gray-9">Keys are stored locally by OpenCode.</div>
+                    <Button
+                      onClick={async () => {
+                        if (!customProviderName.trim() || !customBaseUrl.trim() || !customApiKey.trim() || !customModel.trim()) {
+                          setLocalError("All fields are required");
+                          return;
+                        }
+                        setLocalError(null);
+                        setCustomSubmitting(true);
+                        try {
+                          // Call the store function via props
+                          const result = await props.onAddCustomProvider?.({
+                            name: customProviderName,
+                            baseUrl: customBaseUrl,
+                            apiKey: customApiKey,
+                            model: customModel,
+                          });
+                          if (result?.error) {
+                            setLocalError(result.error);
+                          } else {
+                            props.onClose();
+                          }
+                        } catch (error) {
+                          setLocalError(error instanceof Error ? error.message : "Failed to add provider");
+                        } finally {
+                          setCustomSubmitting(false);
+                        }
+                      }}
+                      disabled={actionDisabled || customSubmitting || !customProviderName.trim() || !customBaseUrl.trim() || !customApiKey.trim() || !customModel.trim()}
+                    >
+                      {customSubmitting ? "Adding..." : "Add Provider"}
                     </Button>
                   </div>
                 </div>

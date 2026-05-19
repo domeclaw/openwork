@@ -187,10 +187,10 @@ export function getGlobalSettingsTabs(developerMode: boolean): SettingsTab[] {
 }
 
 export const CLOUD_SETTINGS_TABS: SettingsTab[] = [
-  "cloud-account",
-  "cloud-marketplaces",
-  "cloud-workers",
-  "cloud-providers",
+  // cloud-account,
+  // cloud-marketplaces,
+  // cloud-workers,
+  // cloud-providers,
 ];
 
 type SettingsPageProps = {
@@ -326,28 +326,30 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>{t("settings.group_cloud")}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {cloudTabs.map((tab) => {
-                const Icon = getSettingsTabIcon(tab);
-                return (
-                  <SidebarMenuItem key={tab}>
-                    <SidebarMenuButton
-                      type="button"
-                      isActive={props.activeTab === tab}
-                      onClick={() => props.onSelectTab(tab)}
-                    >
-                      <Icon />
-                      <span>{getSettingsTabLabel(tab)}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {cloudTabs.length > 0 ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>{t("settings.group_cloud")}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {cloudTabs.map((tab) => {
+                  const Icon = getSettingsTabIcon(tab);
+                  return (
+                    <SidebarMenuItem key={tab}>
+                      <SidebarMenuButton
+                        type="button"
+                        isActive={props.activeTab === tab}
+                        onClick={() => props.onSelectTab(tab)}
+                      >
+                        <Icon />
+                        <span>{getSettingsTabLabel(tab)}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
       </SidebarContent>
     </Sidebar>
   );
