@@ -1469,7 +1469,7 @@ export default {
   "status.loading_session": "Loading session",
   "status.mcp_connected": "{count} MCP connected",
   "status.open_docs": "Open documentation",
-  "status.openwork_ready": "OpenWork Ready",
+  "status.openwork_ready": "THWork Ready",
   "status.providers_connected_one": "{count} provider connected",
   "status.providers_connected_other": "{count} providers connected",
   "status.ready_for_tasks": "Ready for new tasks",
