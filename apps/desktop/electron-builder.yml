@@ -29,7 +29,7 @@ publish:
     repo: openwork
     releaseType: release
 mac:
-  icon: resources/icons/icon.icns
+  icon: resources/icons/thwork.icns
   category: public.app-category.developer-tools
   hardenedRuntime: true
   gatekeeperAssess: false
@@ -54,7 +54,7 @@ mac:
     - dmg
     - zip
 linux:
-  icon: resources/icons/icon.png
+  icon: resources/icons/thwork.png
   extraResources:
     - from: resources/sidecars
       to: sidecars
@@ -75,7 +75,7 @@ linux:
     - AppImage
     - tar.gz
 win:
-  icon: resources/icons/icon.ico
+  icon: resources/icons/thwork.ico
   extraResources:
     - from: resources/sidecars
       to: sidecars

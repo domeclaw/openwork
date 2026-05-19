@@ -37,7 +37,7 @@ const TAURI_APP_IDENTIFIER = "com.differentai.openwork";
 const DEV_APP_IDENTIFIER = "com.differentai.openwork.dev";
 const DESKTOP_PROTOCOL_SCHEME = "openwork";
 const isDevMode = process.env.OPENWORK_DEV_MODE === "1";
-const APP_NAME = isDevMode ? "OpenWork - Dev" : "OpenWork";
+const APP_NAME = isDevMode ? "THWork - Dev" : "THWork";
 const APP_IDENTIFIER = isDevMode ? DEV_APP_IDENTIFIER : TAURI_APP_IDENTIFIER;
 const RELEASE_DOWNLOAD_BASE_URL = "https://github.com/different-ai/openwork/releases/latest/download";
 const RELEASE_PAGE_URL = "https://github.com/different-ai/openwork/releases/latest";
@@ -78,7 +78,7 @@ function resolveAppIconPath() {
         ]
       : []),
     // Repo-relative path to the Electron resource icon set.
-    path.resolve(__dirname, "../resources/icons/icon.png"),
+    path.resolve(__dirname, "../resources/icons/thwork.png"),
     // Packaged: electron-builder copies extraResources but we fall back to this
     // if custom packaging ever exposes the icon here.
     path.join(process.resourcesPath ?? "", "icons", "icon.png"),
