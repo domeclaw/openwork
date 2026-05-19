@@ -1508,7 +1508,7 @@ async function fetchOpenworkWorkspaceList(hostUrl, token, hostToken) {
   try {
     const response = await fetch(url, { headers, signal: controller.signal });
     if (!response.ok) {
-      throw new Error(`OpenWork workspace discovery failed (${response.status} ${response.statusText || "HTTP error"})`);
+      throw new Error(`THWork workspace discovery failed (${response.status} ${response.statusText || "HTTP error"})`);
     }
     return await response.json();
   } finally {
@@ -1581,7 +1581,7 @@ async function readWorkspaceState() {
     }
     return nextWorkspace;
   });
-  // Older desktop state can contain multiple OpenWork remote entries that
+  // Older desktop state can contain multiple THWork remote entries that
   // normalize to the same `rem_<workspaceId>` after stripping worker mounts.
   // Collapse them here so React never receives duplicate workspace keys.
   const workspaceIndexById = new Map();
@@ -1664,13 +1664,13 @@ async function disposeRuntimeBeforeQuit() {
 
 function assertOpenworkServerReady(info) {
   if (!info?.running) {
-    throw new Error("OpenWork server did not stay running after startup.");
+    throw new Error("THWork server did not stay running after startup.");
   }
   if (!info.baseUrl) {
-    throw new Error("OpenWork server did not report a base URL after startup.");
+    throw new Error("THWork server did not report a base URL after startup.");
   }
   if (!info.ownerToken && !info.clientToken) {
-    throw new Error("OpenWork server did not report an access token after startup.");
+    throw new Error("THWork server did not report an access token after startup.");
   }
   return info;
 }
@@ -2136,8 +2136,8 @@ async function handleDesktopInvoke(event, command, ...args) {
         if (!discovered?.id) {
           throw new Error(
             directory
-              ? `OpenWork server has no workspace matching ${directory}.`
-              : "OpenWork server returned no workspaces.",
+              ? `THWork server has no workspace matching ${directory}.`
+              : "THWork server returned no workspaces.",
           );
         }
         resolvedOpenworkWorkspaceId = String(discovered.id).trim();
@@ -2208,8 +2208,8 @@ async function handleDesktopInvoke(event, command, ...args) {
             if (!discovered?.id) {
               throw new Error(
                 directory
-                  ? `OpenWork server has no workspace matching ${directory}.`
-                  : "OpenWork server returned no workspaces.",
+                  ? `THWork server has no workspace matching ${directory}.`
+                  : "THWork server returned no workspaces.",
               );
             }
             remoteWorkspaceId = String(discovered.id).trim();
@@ -2665,7 +2665,7 @@ async function runOpenworkControlCommand(command, args = {}) {
   if (command === "snapshot") {
     return evaluateOpenworkControl(`(async () => {
       const control = window.__openworkControl;
-      if (!control) return { ok: false, error: "OpenWork control surface is not available yet." };
+      if (!control) return { ok: false, error: "THWork control surface is not available yet." };
       control.setEnabled?.(true);
       return { ok: true, ...control.snapshot() };
     })()`);
@@ -2673,7 +2673,7 @@ async function runOpenworkControlCommand(command, args = {}) {
   if (command === "actions") {
     return evaluateOpenworkControl(`(async () => {
       const control = window.__openworkControl;
-      if (!control) return { ok: false, error: "OpenWork control surface is not available yet." };
+      if (!control) return { ok: false, error: "THWork control surface is not available yet." };
       control.setEnabled?.(true);
       return { ok: true, actions: control.listActions() };
     })()`);
@@ -2682,15 +2682,15 @@ async function runOpenworkControlCommand(command, args = {}) {
     return evaluateOpenworkControl(`(async () => {
       const control = window.__openworkControl;
       const input = JSON.parse(${argsJsonLiteral});
-      if (!control) return { ok: false, error: "OpenWork control surface is not available yet." };
+      if (!control) return { ok: false, error: "THWork control surface is not available yet." };
       if (!input || typeof input.actionId !== "string" || !input.actionId.trim()) {
-        return { ok: false, error: "Missing OpenWork actionId." };
+        return { ok: false, error: "Missing THWork actionId." };
       }
       control.setEnabled?.(true);
       return control.execute(input.actionId, input.args ?? {});
     })()`, { focus: true });
   }
-  return { ok: false, error: `Unknown OpenWork control command: ${command}` };
+  return { ok: false, error: `Unknown THWork control command: ${command}` };
 }
 
 async function startUiControlServer() {
@@ -2729,7 +2729,7 @@ async function startUiControlServer() {
   });
   const address = uiControlServer.address();
   const port = typeof address === "object" && address ? address.port : null;
-  if (!port) throw new Error("Could not start OpenWork UI control bridge.");
+  if (!port) throw new Error("Could not start THWork UI control bridge.");
   uiControlDiscoveryPath = path.join(app.getPath("userData"), "openwork-ui-control.json");
   await writeFile(
     uiControlDiscoveryPath,

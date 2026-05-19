@@ -1,0 +1,90 @@
+name: Build THWork Desktop (tkwork-lite)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - tkwork-lite
+    paths:
+      - apps/app/**
+      - apps/desktop/**
+      - packages/ui/**
+      - constants.json
+      - pnpm-lock.yaml
+      - package.json
+      - .github/workflows/build-thwork-tkwork-lite.yml
+
+jobs:
+  build-thwork:
+    name: Build THWork ${{ matrix.os }} (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos
+            arch: arm64
+            artifact-name: thwork-macos-arm64
+          - os: windows-latest
+            platform: windows
+            arch: x64
+            artifact-name: thwork-windows-x64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Electron desktop
+        run: pnpm --filter @openwork/desktop run build:electron
+
+      - name: Package DMG/Installer (unsigned, for testing)
+        run: |
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac dmg zip --publish never
+          else
+            pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --win nsis --publish never
+          fi
+        shell: bash
+
+      - name: Upload DMG artifact (macOS)
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-dmg
+          path: apps/desktop/dist-electron/*.dmg
+          retention-days: 30
+
+      - name: Upload ZIP artifact (macOS)
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-zip
+          path: apps/desktop/dist-electron/*.zip
+          retention-days: 30
+
+      - name: Upload NSIS Installer (Windows)
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-installer
+          path: apps/desktop/dist-electron/*.exe
+          retention-days: 30

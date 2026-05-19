@@ -17,7 +17,7 @@ export function buildSkillsSetBundle(
     schemaVersion: 1,
     type: "skills-set",
     name: `${workspaceName} skills`,
-    description: "Complete skills set from an OpenWork workspace.",
+    description: "Complete skills set from a THWork workspace.",
     skills: skills.map((skill) => ({
       name: skill.name,
       description: skill.description,

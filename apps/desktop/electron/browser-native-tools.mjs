@@ -883,7 +883,7 @@ export function createNativeBuiltinServer({
 
   server.tool(
     "show_browser",
-    "Open the built-in browser panel inside the OpenWork app. " +
+    "Open the built-in browser panel inside the THWork app. " +
     "Called automatically when any browser tool runs, but can also be called explicitly.",
     {},
     async () => {

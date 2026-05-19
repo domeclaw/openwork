@@ -1274,7 +1274,7 @@ function resolveManagedOpencodeCredentials(args: ParsedArgs): {
   if (requestedUsername && requestedPassword && hasExplicitCredentialFlags) {
     if (!allowInjectedCredentials) {
       throw new Error(
-        "OpenCode credentials are managed by OpenWork. Custom --opencode-username/--opencode-password values are not supported.",
+        "OpenCode credentials are managed by THWork. Custom --opencode-username/--opencode-password values are not supported.",
       );
     }
     return {
@@ -1302,7 +1302,7 @@ function assertManagedOpencodeAuth(args: ParsedArgs) {
   );
   if (!authEnabled) {
     throw new Error(
-      "OpenCode basic auth is always enabled when OpenWork launches OpenCode.",
+      "OpenCode basic auth is always enabled when THWork launches OpenCode.",
     );
   }
 }
@@ -3673,7 +3673,7 @@ function printHelp(): void {
     "  openwork status [--openwork-url <url>] [--opencode-url <url>]",
     "",
     "Commands:",
-    "  start                   Start OpenCode + OpenWork server + OpenCodeRouter",
+    "  start                   Start OpenCode + THWork server + OpenCodeRouter",
     "  serve                   Start services and stream logs (no TUI)",
     "  daemon                  Run orchestrator router daemon (multi-workspace)",
     "  workspace               Manage workspaces (add/list/switch/path)",
@@ -3681,7 +3681,7 @@ function printHelp(): void {
     "  approvals list           List pending approval requests",
     "  approvals reply <id>     Approve or deny a request",
     "  files                   Manage file sessions and batch file sync",
-    "  status                  Check OpenCode/OpenWork health",
+    "  status                  Check OpenCode/THWork health",
     "",
     "Options:",
     "  --workspace <path>        Workspace directory (default: cwd)",
@@ -3701,7 +3701,7 @@ function printHelp(): void {
     "  --opencode-password <p>   Internal-only override for managed OpenCode auth password",
     "  --openwork-host <host>    Bind host for openwork-server (default: 127.0.0.1)",
     "  --openwork-port <port>    Port for openwork-server (default: 8787)",
-    "  --remote-access           Expose OpenWork on 0.0.0.0 for remote sharing",
+    "  --remote-access           Expose THWork on 0.0.0.0 for remote sharing",
     "  --openwork-token <token>  Client token for openwork-server",
     "  --openwork-host-token <t> Host token for approvals",
     "  --workspace-id <id>       Workspace id for file session commands",
@@ -3720,7 +3720,7 @@ function printHelp(): void {
     "  --recursive               Recursive delete for files delete",
     "  --approval <mode>         manual | auto (default: manual)",
     "  --approval-timeout <ms>   Approval timeout in ms",
-    "  --read-only               Start OpenWork server in read-only mode",
+    "  --read-only               Start THWork server in read-only mode",
     "  --cors <origins>          Comma-separated CORS origins or *",
     "  --connect-host <host>     Override LAN host used for pairing URLs",
     "  --openwork-server-bin <p> Path to openwork-server binary (requires --allow-external)",
@@ -4774,7 +4774,7 @@ async function verifyOpencodeVersion(
   const actual = await readCliVersion(binary.bin);
   // When the binary was explicitly provided via --opencode-bin (source "external"),
   // a strict version check would break desktop app users whenever a new opencode
-  // release ships on GitHub before OpenWork updates its bundled binary. Log a
+  // release ships on GitHub before THWork updates its bundled binary. Log a
   // warning instead of throwing so the caller can still proceed.
   if (
     binary.source === "external" &&
@@ -4820,7 +4820,7 @@ async function verifyOpenworkServer(input: {
     ? (workspaces.items as Array<Record<string, unknown>>)
     : [];
   if (!items.length) {
-    throw new Error("OpenWork server returned no workspaces");
+    throw new Error("THWork server returned no workspaces");
   }
 
   const expectedPath = normalizeWorkspacePath(input.expectedWorkspace);
@@ -4843,7 +4843,7 @@ async function verifyOpenworkServer(input: {
 
   if (!matched) {
     throw new Error(
-      `OpenWork server workspace mismatch. Expected ${expectedPath}.`,
+      `THWork server workspace mismatch. Expected ${expectedPath}.`,
     );
   }
 
@@ -4853,7 +4853,7 @@ async function verifyOpenworkServer(input: {
     opencode?.baseUrl !== input.expectedOpencodeBaseUrl
   ) {
     throw new Error(
-      `OpenWork server OpenCode base URL mismatch: expected ${input.expectedOpencodeBaseUrl}, got ${opencode?.baseUrl ?? "<missing>"}.`,
+      `THWork server OpenCode base URL mismatch: expected ${input.expectedOpencodeBaseUrl}, got ${opencode?.baseUrl ?? "<missing>"}.`,
     );
   }
   if (
@@ -4861,20 +4861,20 @@ async function verifyOpenworkServer(input: {
     opencode?.directory !== input.expectedOpencodeDirectory
   ) {
     throw new Error(
-      `OpenWork server OpenCode directory mismatch: expected ${input.expectedOpencodeDirectory}, got ${opencode?.directory ?? "<missing>"}.`,
+      `THWork server OpenCode directory mismatch: expected ${input.expectedOpencodeDirectory}, got ${opencode?.directory ?? "<missing>"}.`,
     );
   }
   if (
     input.expectedOpencodeUsername &&
     opencode?.username !== input.expectedOpencodeUsername
   ) {
-    throw new Error("OpenWork server OpenCode username mismatch.");
+    throw new Error("THWork server OpenCode username mismatch.");
   }
   if (
     input.expectedOpencodePassword &&
     opencode?.password !== input.expectedOpencodePassword
   ) {
-    throw new Error("OpenWork server OpenCode password mismatch.");
+    throw new Error("THWork server OpenCode password mismatch.");
   }
 
   const hostHeaders = { "X-OpenWork-Host-Token": input.hostToken };
@@ -4928,7 +4928,7 @@ async function runChecks(input: {
   const hostHeaders = { "X-OpenWork-Host-Token": input.hostToken };
   const workspaces = await fetchJson(`${baseUrl}/workspaces`, { headers });
   if (!workspaces?.items?.length) {
-    throw new Error("OpenWork server returned no workspaces");
+    throw new Error("THWork server returned no workspaces");
   }
 
   const workspaceId = workspaces.items[0].id as string;
@@ -4981,7 +4981,7 @@ async function runChecks(input: {
   }
 
   const created = await input.opencodeClient.session.create({
-    title: "OpenWork headless check",
+    title: "THWork headless check",
   });
   const createdSession = unwrap(created);
   unwrap(
@@ -5012,7 +5012,7 @@ async function runChecks(input: {
 
     unwrap(
       await input.opencodeClient.session.create({
-        title: "OpenWork headless check events",
+        title: "THWork headless check events",
       }),
     );
     await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -5142,7 +5142,7 @@ async function fetchJson(url: string, init?: RequestInit): Promise<any> {
 async function issueOpenworkOwnerToken(
   baseUrl: string,
   hostToken: string,
-  label = "OpenWork owner token",
+  label = "THWork owner token",
 ): Promise<string> {
   const payload = await fetchJson(`${baseUrl.replace(/\/$/, "")}/tokens`, {
     method: "POST",
@@ -5154,7 +5154,7 @@ async function issueOpenworkOwnerToken(
   });
   const token = typeof payload?.token === "string" ? payload.token.trim() : "";
   if (!token) {
-    throw new Error("OpenWork server did not return an owner token");
+    throw new Error("THWork server did not return an owner token");
   }
   return token;
 }
@@ -6830,7 +6830,7 @@ async function runStatus(args: ParsedArgs) {
         error?: string;
       };
       console.log(
-        `OpenWork server: ${openwork.ok ? "ok" : "error"} (${openwork.url})`,
+        `THWork server: ${openwork.ok ? "ok" : "error"} (${openwork.url})`,
       );
       if (openwork.error) console.log(`  ${openwork.error}`);
     }
@@ -7266,7 +7266,7 @@ async function runStart(args: ParsedArgs) {
 
   const attachCommand =
     sandboxMode !== "none"
-      ? `OpenCode is proxied via ${opencodeConnectUrl} (requires OpenWork token)`
+      ? `OpenCode is proxied via ${opencodeConnectUrl} (requires THWork token)`
       : buildAttachCommand({
           url: opencodeConnectUrl,
           workspace: resolvedWorkspace,
@@ -7684,9 +7684,9 @@ async function runStart(args: ParsedArgs) {
             `Stop: ${sandboxStopCommand} ${sandboxContainerName}`,
           ]
         : []),
-      `OpenWork URL: ${openworkConnectUrl}`,
+      `THWork URL: ${openworkConnectUrl}`,
       "Credentials withheld from detached stdout.",
-      ...(openworkOwnerToken ? ["OpenWork owner token issued."] : []),
+      ...(openworkOwnerToken ? ["THWork owner token issued."] : []),
       `OpenCode URL: ${opencodeConnectUrl}`,
       `Attach: ${redactSensitiveString(attachCommand)}`,
       "Use `--json` only when you explicitly need the raw tokens or passwords in command output.",
@@ -8178,7 +8178,7 @@ async function runStart(args: ParsedArgs) {
       openworkOwnerToken = await issueOpenworkOwnerToken(
         openworkBaseUrl,
         openworkHostToken,
-        "OpenWork sandbox owner token",
+        "THWork sandbox owner token",
       );
       tui?.setConnectInfo({ ownerToken: openworkOwnerToken });
       logVerbose(
@@ -8419,7 +8419,7 @@ async function runStart(args: ParsedArgs) {
       openworkOwnerToken = await issueOpenworkOwnerToken(
         openworkBaseUrl,
         openworkHostToken,
-        "OpenWork owner token",
+        "THWork owner token",
       );
       tui?.setConnectInfo({ ownerToken: openworkOwnerToken });
       logVerbose(
@@ -8615,7 +8615,7 @@ async function runStart(args: ParsedArgs) {
         "openwork-orchestrator",
       );
     } else {
-      console.log("OpenWork orchestrator running");
+      console.log("THWork orchestrator running");
       console.log(`Run ID: ${runId}`);
       console.log(`Workspace: ${payload.workspace}`);
       console.log(`OpenCode: ${payload.opencode.baseUrl}`);
@@ -8623,12 +8623,12 @@ async function runStart(args: ParsedArgs) {
       if (payload.opencode.username && payload.opencode.password) {
         console.log("OpenCode auth: managed credentials configured (withheld from stdout)");
       }
-      console.log(`OpenWork server: ${payload.openwork.baseUrl}`);
-      console.log(`OpenWork connect URL: ${payload.openwork.connectUrl}`);
-      console.log("OpenWork collaborator token: issued (withheld from stdout)");
+      console.log(`THWork server: ${payload.openwork.baseUrl}`);
+      console.log(`THWork connect URL: ${payload.openwork.connectUrl}`);
+      console.log("THWork collaborator token: issued (withheld from stdout)");
       console.log("  Routine remote access for shared workers.");
       if (payload.openwork.ownerToken) {
-        console.log("OpenWork owner token: issued (withheld from stdout)");
+        console.log("THWork owner token: issued (withheld from stdout)");
         console.log(
           "  Use this when the remote client must answer permission prompts.",
         );
