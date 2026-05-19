@@ -72,9 +72,9 @@ function resolveAppIconPath() {
     // Dev: match Tauri's separate dev icon so the dev app is visibly distinct.
     ...(isDevMode
       ? [
-          path.resolve(__dirname, "../resources/icons/dev/icon.png"),
-          path.resolve(__dirname, "../resources/icons/dev/128x128@2x.png"),
-          path.resolve(__dirname, "../resources/icons/dev/icon-dev.icns"),
+          path.resolve(__dirname, "../resources/icons/dev-thwork/icon.png"),
+          path.resolve(__dirname, "../resources/icons/dev-thwork/128x128@2x.png"),
+          path.resolve(__dirname, "../resources/icons/dev-thwork/icon-dev.icns"),
         ]
       : []),
     // Repo-relative path to the Electron resource icon set.
