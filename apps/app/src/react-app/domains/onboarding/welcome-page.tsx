@@ -40,8 +40,8 @@ const capabilities = [
   },
   {
     slug: "googlechrome",
-    title: "Control your browser",
-    desc: "Automate Chrome for repetitive web tasks.",
+    title: "ข่าว Hot!! ล่าสุดจากเพจทีวีพูล",
+    desc: "ค้นหาโพสต์ล่าสุดและวิเคราะห์ engagement.",
   },
   {
     slug: "apple",

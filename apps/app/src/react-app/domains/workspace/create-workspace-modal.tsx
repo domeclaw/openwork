@@ -494,7 +494,8 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
                   ) : undefined
                 }
               />
-              <WorkspaceOptionCard
+              {/* Disabled: Shared workspaces and custom remote connections */}
+              {/* <WorkspaceOptionCard
                 title={t("dashboard.create_remote_custom_title")}
                 description={t("dashboard.chooser_remote_desc")}
                 icon={Globe}
@@ -505,7 +506,7 @@ export function CreateWorkspaceModal(props: CreateWorkspaceModalProps) {
                 description={t("dashboard.chooser_shared_desc")}
                 icon={Cloud}
                 onClick={() => setScreen("shared")}
-              />
+              /> */}
 
               {props.onImportConfig ? (
                 <div className="pt-2">

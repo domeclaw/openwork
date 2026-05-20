@@ -65,8 +65,8 @@ import type { OpenworkServerStore } from "../../connections/openwork-server-stor
 
 const OPENCODE_SKILL_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const DEFAULT_HUB_REPO: HubSkillRepo = {
-  owner: "different-ai",
-  repo: "openwork-hub",
+  owner: "tokenine",
+  repo: "tk9-hub",
   ref: "main",
 };
 const HUB_REPOS_STORAGE_KEY = "openwork.skills.hubRepos.v1";
@@ -1373,9 +1373,30 @@ export function createExtensionsStore(options: {
       openworkWorkspaceId &&
       openworkSnapshot.openworkServerCapabilities?.hub?.skills?.install;
 
-    if (!canUseOpenworkServer) {
-      if (isRemoteWorkspace) return { ok: false, message: "OpenWork server unavailable. Connect to install skills." };
-      return { ok: false, message: "Hub install requires OpenWork server." };
+    // Try OpenWork Server first if available
+    if (canUseOpenworkServer) {
+      options.setBusy(true);
+      options.setError(null);
+      setStateField("skillsStatus", null);
+
+      try {
+        const repoOverride: OpenworkHubRepo = { owner: repo.owner, repo: repo.repo, ref: repo.ref };
+        const result = await openworkClient.installHubSkill(openworkWorkspaceId, trimmed, { repo: repoOverride });
+        await Promise.all([refreshSkills({ force: true }), refreshHubSkills({ force: true })]);
+        if (!result?.ok) return { ok: false, message: "Install failed." };
+        return { ok: true, message: `Installed ${trimmed}.` };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t("skills.unknown_error");
+        options.setError(addOpencodeCacheHint(message));
+        return { ok: false, message };
+      } finally {
+        options.setBusy(false);
+      }
+    }
+
+    // Fallback: Install directly from GitHub without OpenWork Server
+    if (isRemoteWorkspace) {
+      return { ok: false, message: "Remote workspaces require OpenWork server to install skills." };
     }
 
     options.setBusy(true);
@@ -1383,10 +1404,39 @@ export function createExtensionsStore(options: {
     setStateField("skillsStatus", null);
 
     try {
-      const repoOverride: OpenworkHubRepo = { owner: repo.owner, repo: repo.repo, ref: repo.ref };
-      const result = await openworkClient.installHubSkill(openworkWorkspaceId, trimmed, { repo: repoOverride });
+      // Fetch skill content from GitHub
+      const skillPath = `skills/${encodeURIComponent(trimmed)}/SKILL.md`;
+      const contentRes = await fetch(
+        `https://raw.githubusercontent.com/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.repo)}/${encodeURIComponent(repo.ref)}/${skillPath}`,
+      );
+
+      if (!contentRes.ok) {
+        throw new Error(`Failed to fetch skill from GitHub (${contentRes.status})`);
+      }
+
+      const skillContent = await contentRes.text();
+
+      // Normalize skill name to kebab-case (lowercase, replace _ and spaces with -)
+      const kebabName = trimmed
+        .toLowerCase()
+        .replace(/[_\s]+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      if (!kebabName || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(kebabName)) {
+        throw new Error(`Invalid skill name: ${trimmed}. Must be kebab-case (e.g., my-skill-name).`);
+      }
+
+      // Save skill using installSkillTemplate from desktop bridge
+      const workspaceRoot = options.selectedWorkspaceRoot().trim();
+      if (!workspaceRoot) {
+        throw new Error("No workspace selected.");
+      }
+
+      await installSkillTemplate(workspaceRoot, kebabName, skillContent, { overwrite: false });
+
       await Promise.all([refreshSkills({ force: true }), refreshHubSkills({ force: true })]);
-      if (!result?.ok) return { ok: false, message: "Install failed." };
       return { ok: true, message: `Installed ${trimmed}.` };
     } catch (error) {
       const message = error instanceof Error ? error.message : t("skills.unknown_error");
