@@ -34,6 +34,7 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: false
+  forceCodeSigning: false
   extraResources:
     - from: resources/sidecars
       to: sidecars
