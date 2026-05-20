@@ -53,20 +53,23 @@ jobs:
           if [ "${{ matrix.platform }}" = "macos" ]; then
             # Create self-signed certificate for code signing
             CERT_NAME="THWork Development"
-            security create-keychain -p "" build.keychain
+            security create-keychain -p "build" build.keychain
             security default-keychain -s build.keychain
-            security unlock-keychain -p "" build.keychain
+            security unlock-keychain -p "build" build.keychain
             security set-keychain-settings -lut 21600 build.keychain
             
             # Generate self-signed certificate (valid for 10 years)
             openssl req -x509 -new -nodes -newkey rsa:2048 -keyout /tmp/signing.key -out /tmp/signing.crt -days 3650 -subj "/CN=THWork Development/O=THWork/C=TH"
             
             # Convert to P12 and import to keychain
-            openssl pkcs12 -export -out /tmp/signing.p12 -inkey /tmp/signing.key -in /tmp/signing.crt -password pass:
-            security import /tmp/signing.p12 -k build.keychain -P "" -T /usr/bin/codesign
+            openssl pkcs12 -export -out /tmp/signing.p12 -inkey /tmp/signing.key -in /tmp/signing.crt -password pass:build
+            security import /tmp/signing.p12 -k build.keychain -P build -T /usr/bin/codesign
             
             # Set trust level for the certificate
             security add-trusted-cert -d -r trustRoot -k build.keychain /tmp/signing.crt
+            
+            # Allow codesign to access the key
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k build build.keychain
             
             # Build with signing
             MACOS_CERT_NAME="Developer ID Application: THWork Development" \
