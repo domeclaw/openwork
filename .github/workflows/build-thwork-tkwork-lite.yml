@@ -58,8 +58,8 @@ jobs:
             security unlock-keychain -p "" build.keychain
             security set-keychain-settings -lut 21600 build.keychain
             
-            # Generate self-signed certificate
-            openssl req -x509 -new -nodes -newkey rsa:2048 -keyout /tmp/signing.key -out /tmp/signing.crt -days 365 -subj "/CN=THWork Development/O=THWork/C=TH"
+            # Generate self-signed certificate (valid for 10 years)
+            openssl req -x509 -new -nodes -newkey rsa:2048 -keyout /tmp/signing.key -out /tmp/signing.crt -days 3650 -subj "/CN=THWork Development/O=THWork/C=TH"
             
             # Convert to P12 and import to keychain
             openssl pkcs12 -export -out /tmp/signing.p12 -inkey /tmp/signing.key -in /tmp/signing.crt -password pass:
