@@ -43,6 +43,17 @@ const RELEASE_DOWNLOAD_BASE_URL = "https://github.com/different-ai/openwork/rele
 const RELEASE_PAGE_URL = "https://github.com/different-ai/openwork/releases/latest";
 const DOCS_PAGE_URL = "https://openworklabs.com/docs";
 
+// Read app version from package.json (needed for dev mode where app.getVersion() returns Electron version)
+const packageJsonPath = path.resolve(__dirname, "../package.json");
+const APP_VERSION = (() => {
+  try {
+    const packageJson = JSON.parse(existsSync(packageJsonPath) ? require("fs").readFileSync(packageJsonPath, "utf-8") : "{}");
+    return packageJson.version || app.getVersion();
+  } catch {
+    return app.getVersion();
+  }
+})();
+
 // Production Electron shares the same on-disk state folder as the Tauri shell
 // so in-place migration is a no-op for almost every file. Dev mode uses the
 // separate dev identifier so it can run beside the production app.
@@ -2923,8 +2934,8 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform === "darwin") {
       app.setAboutPanelOptions({
         applicationName: APP_NAME,
-        applicationVersion: app.getVersion(),
-        copyright: "© 2024 THWork",
+        applicationVersion: APP_VERSION,
+        copyright: "© 2026 THWork",
       });
     }
     await installReactDevToolsForDev();

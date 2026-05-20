@@ -17,7 +17,7 @@ export type UiState = {
 
 const initialState: UiState = {
   sidebarOpen: true,
-  browserPanelOpen: false,
+  browserPanelOpen: true,
   applicationMenuVisible: false,
 };
 
@@ -57,13 +57,12 @@ function readPersistedUiState(): UiState {
     }
 
     const parsed: PersistedUiState = JSON.parse(raw);
-    const browserPanelOpen = parsed.browserPanelOpen ?? initialState.browserPanelOpen;
     const applicationMenuVisible = parsed.applicationMenuVisible ?? initialState.applicationMenuVisible;
 
     return {
       ...initialState,
       sidebarOpen: parsed.sidebarOpen,
-      browserPanelOpen,
+      browserPanelOpen: initialState.browserPanelOpen,
       applicationMenuVisible,
     };
   } catch {
