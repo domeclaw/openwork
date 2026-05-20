@@ -100,7 +100,10 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: THWork ${{ github.ref_name }}
+          draft: false
+          prerelease: false
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.zip
