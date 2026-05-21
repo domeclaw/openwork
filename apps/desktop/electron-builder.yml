@@ -31,7 +31,7 @@ publish:
 mac:
   icon: resources/icons/thwork.icns
   category: public.app-category.developer-tools
-  hardenedRuntime: true
+  hardenedRuntime: false
   gatekeeperAssess: false
   notarize: false
   forceCodeSigning: false

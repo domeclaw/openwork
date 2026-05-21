@@ -48,38 +48,18 @@ jobs:
       - name: Build Electron desktop
         run: pnpm --filter @openwork/desktop run build:electron
 
-      - name: Package DMG/Installer (ad-hoc signed)
-        run: |
-          if [ "${{ matrix.platform }}" = "macos" ]; then
-            # Build unsigned first
-            pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac dir --publish never
-            
-            # Find the .app bundle
-            APP_PATH=$(find apps/desktop/dist-electron/mac* -name "*.app" -type d | head -1)
-            
-            if [ -n "$APP_PATH" ]; then
-              # Apply ad-hoc signature to the app bundle
-              codesign --force --deep --sign - "$APP_PATH"
-              echo "✓ Ad-hoc signed: $APP_PATH"
-              
-              # Repackage to DMG and ZIP
-              pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac dmg zip --publish never
-            else
-              echo "❌ No .app bundle found"
-              exit 1
-            fi
-          else
-            pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --win nsis --publish never
-          fi
-        shell: bash
-
-      - name: Upload DMG artifact (macOS)
+      - name: Build macOS ZIP (unsigned)
         if: matrix.platform == 'macos'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact-name }}-dmg
-          path: apps/desktop/dist-electron/*.dmg
-          retention-days: 30
+        run: |
+          # Build directly to ZIP (no DMG, no signing)
+          pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac zip --publish never
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Build Windows Installer
+        if: matrix.platform == 'windows'
+        run: pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --win nsis --publish never
 
       - name: Upload ZIP artifact (macOS)
         if: matrix.platform == 'macos'
@@ -121,6 +101,5 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            artifacts/**/*.dmg
             artifacts/**/*.zip
             artifacts/**/*.exe
