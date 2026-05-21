@@ -48,16 +48,30 @@ jobs:
       - name: Build Electron desktop
         run: pnpm --filter @openwork/desktop run build:electron
 
-      - name: Package DMG/Installer (unsigned)
+      - name: Package DMG/Installer (ad-hoc signed)
         run: |
           if [ "${{ matrix.platform }}" = "macos" ]; then
-            pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac dmg zip --publish never
+            # Build unsigned first
+            pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac dir --publish never
+            
+            # Find the .app bundle
+            APP_PATH=$(find apps/desktop/dist-electron/mac* -name "*.app" -type d | head -1)
+            
+            if [ -n "$APP_PATH" ]; then
+              # Apply ad-hoc signature to the app bundle
+              codesign --force --deep --sign - "$APP_PATH"
+              echo "✓ Ad-hoc signed: $APP_PATH"
+              
+              # Repackage to DMG
+              pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac dmg --publish never
+            else
+              echo "❌ No .app bundle found"
+              exit 1
+            fi
           else
             pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --win nsis --publish never
           fi
         shell: bash
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Upload DMG artifact (macOS)
         if: matrix.platform == 'macos'
