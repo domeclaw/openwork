@@ -48,11 +48,11 @@ jobs:
       - name: Build Electron desktop
         run: pnpm --filter @openwork/desktop run build:electron
 
-      - name: Build macOS ZIP (unsigned)
+      - name: Build macOS DMG + ZIP (unsigned)
         if: matrix.platform == 'macos'
         run: |
-          # Build directly to ZIP (no DMG, no signing)
-          pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac zip --publish never
+          # Build both DMG and ZIP (unsigned)
+          pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac dmg zip --publish never
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -60,6 +60,14 @@ jobs:
       - name: Build Windows Installer
         if: matrix.platform == 'windows'
         run: pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --win nsis --publish never
+
+      - name: Upload DMG artifact (macOS)
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-dmg
+          path: apps/desktop/dist-electron/*.dmg
+          retention-days: 30
 
       - name: Upload ZIP artifact (macOS)
         if: matrix.platform == 'macos'
@@ -101,5 +109,6 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
+            artifacts/**/*.dmg
             artifacts/**/*.zip
             artifacts/**/*.exe
