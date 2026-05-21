@@ -62,8 +62,8 @@ jobs:
               codesign --force --deep --sign - "$APP_PATH"
               echo "✓ Ad-hoc signed: $APP_PATH"
               
-              # Repackage to DMG
-              pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac dmg --publish never
+              # Repackage to DMG and ZIP
+              pnpm --dir apps/desktop exec electron-builder --config electron-builder.yml --mac dmg zip --publish never
             else
               echo "❌ No .app bundle found"
               exit 1
